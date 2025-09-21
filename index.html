@@ -42,8 +42,8 @@
                         <div class="form-group"><label for="name">Full Name</label><input type="text" id="name" required></div>
                         <div class="form-group"><label for="phone">Phone Number</label><input type="tel" id="phone" required></div>
                         <div class="form-group"><label for="city">City</label><input type="text" id="city" required></div>
-                        <div class="form-group"><label for="day">Select Day</label><select id="day" required><option value="" disabled selected>-- Choose a day --</option></select></div>
-                        <button type="submit" id="book-btn" class="btn btn-primary w-full">Book Token</button>
+                        <div class="form-group"><label for="day">Select Day</label><select id="day" required><option value="" disabled selected>-- Loading available days... --</option></select></div>
+                        <button type="submit" id="book-btn" class="btn btn-primary w-full" disabled>Book Token</button>
                     </form>
                 </div>
             </div>
@@ -60,13 +60,45 @@
             appId: "1:791997144891:web:2d989e8649428b8c97e11e"
         };
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, doc, addDoc, collection, runTransaction, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, addDoc, collection, runTransaction, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-        const dom = { daySelect: document.getElementById('day'), bookingForm: document.getElementById('booking-form'), bookBtn: document.getElementById('book-btn'), resultCard: document.getElementById('result-card') };
-        daysOfWeek.forEach(day => dom.daySelect.innerHTML += `<option value="${day}">${day}</option>`);
+        const dom = { 
+            daySelect: document.getElementById('day'), 
+            bookingForm: document.getElementById('booking-form'), 
+            bookBtn: document.getElementById('book-btn'), 
+            resultCard: document.getElementById('result-card') 
+        };
+
+        async function loadAvailableDays() {
+            try {
+                const daysSettingsRef = doc(db, "settings", "days");
+                const docSnap = await getDoc(daysSettingsRef);
+                const daySettings = docSnap.exists() ? docSnap.data() : {};
+
+                dom.daySelect.innerHTML = '<option value="" disabled selected>-- Choose a day --</option>';
+
+                const availableDays = daysOfWeek.filter(day => daySettings[day] !== false);
+
+                if (availableDays.length === 0) {
+                    dom.daySelect.innerHTML = '<option value="" disabled>Sorry, no days are available for booking.</option>';
+                    dom.bookBtn.disabled = true;
+                } else {
+                    availableDays.forEach(day => {
+                        dom.daySelect.innerHTML += `<option value="${day}">${day}</option>`;
+                    });
+                    dom.bookBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error("Error loading day settings:", error);
+                dom.daySelect.innerHTML = '<option value="" disabled>Could not load booking days.</option>';
+                dom.bookBtn.disabled = true;
+            }
+        }
+
+        loadAvailableDays();
 
         async function createBooking(name, phone, city, day) {
             const settingsRef = doc(db, "settings", "daily");
@@ -82,7 +114,6 @@
                 newTokenNumber = currentCount + 1;
                 const bookingData = { token: newTokenNumber, name, phone, city, day, createdAt: new Date() };
                 
-                // This transaction will now succeed because of the new security rules
                 transaction.update(settingsRef, { count: increment(1) });
                 transaction.set(doc(collection(db, "bookings")), bookingData);
             });
@@ -91,25 +122,28 @@
         
         dom.bookingForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            dom.bookBtn.disabled = true; dom.bookBtn.textContent = 'Booking...';
+            dom.bookBtn.disabled = true; 
+            dom.bookBtn.textContent = 'Booking...';
             dom.resultCard.classList.add('hidden');
             try {
                 const result = await createBooking(
-                    dom.bookingForm.elements['name'].value, dom.bookingForm.elements['phone'].value,
-                    dom.bookingForm.elements['city'].value, dom.bookingForm.elements['day'].value
+                    dom.bookingForm.elements['name'].value, 
+                    dom.bookingForm.elements['phone'].value,
+                    dom.bookingForm.elements['city'].value, 
+                    dom.bookingForm.elements['day'].value
                 );
                 dom.resultCard.innerHTML = `<div class="card-header bg-green-500/20 border-green-500"><h2 class="text-green-400">Booking Successful!</h2></div><div class="card-body space-y-4"><div class="text-center"><p class="text-gray-400">Your Token Number:</p><h3 class="text-4xl font-bold text-amber-400">#${result.token}</h3></div></div>`;
                 dom.resultCard.classList.remove('hidden');
                 dom.bookingForm.reset();
+                loadAvailableDays(); // Refresh day list after booking
             } catch (error) {
                 dom.resultCard.innerHTML = `<div class="card-header bg-red-500/20 border-red-500"><h2 class="text-red-400">Booking Failed</h2></div><div class="card-body"><p class="text-center">${error.message}</p></div>`;
                 dom.resultCard.classList.remove('hidden');
             } finally {
-                dom.bookBtn.disabled = false; dom.bookBtn.textContent = 'Book Token';
+                dom.bookBtn.disabled = false; 
+                dom.bookBtn.textContent = 'Book Token';
             }
         });
     </script>
 </body>
 </html>
-
-
