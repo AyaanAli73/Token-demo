@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Teko:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #111827; --bg-card: rgba(31, 41, 55, 0.5);
+            --primary-accent: #f59e0b; --secondary-accent: #06b6d4;
+            --danger-color: #ef4444; --text-light: #f3f4f6;
+            --text-muted: #9ca3af; --border-color: rgba(75, 85, 99, 0.7);
+        }
+        body { font-family: 'Poppins', sans-serif; background-color: var(--bg-dark); color: var(--text-light); }
+        .container-wrapper { width: 100%; padding: 1rem; }
+        h1, h2, h3 { font-family: 'Teko', sans-serif; letter-spacing: 1px; }
+        .card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(10px); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); margin-bottom: 2rem; }
+        .card-header { padding: 1.5rem; border-bottom: 1px solid var(--border-color); }
+        .card-header h2 { font-size: 2rem; color: var(--secondary-accent); }
+        .card-body { padding: 1.5rem; }
+        .form-group label { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem; display: block; }
+        .form-group input, .form-group select { background: rgba(17, 24, 39, 0.8); border: 1px solid var(--border-color); color: var(--text-light); border-radius: 8px; padding: 0.75rem 1rem; width: 100%; box-sizing: border-box; transition: all 0.3s ease; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary-accent); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3); }
+        .btn { padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; border: 1px solid transparent; }
+        .btn-primary { background: var(--primary-accent); color: var(--bg-dark); border-color: var(--primary-accent); }
+        .btn-primary:hover { background: #d97706; box-shadow: 0 0 15px rgba(245, 158, 11, 0.5); }
+        .btn-secondary { background: transparent; border: 1px solid var(--secondary-accent); color: var(--secondary-accent); }
+        .btn-secondary:hover { background: var(--secondary-accent); color: var(--bg-dark); box-shadow: 0 0 15px rgba(6, 182, 212, 0.5); }
+        .btn-danger { background: transparent; border: 1px solid var(--danger-color); color: var(--danger-color); }
+        .btn-danger:hover { background: var(--danger-color); color: var(--text-light); box-shadow: 0 0 15px rgba(239, 68, 68, 0.5); }
+        .btn:disabled { background: #4b5563; color: #9ca3af; cursor: not-allowed; border-color: #4b5563; }
+        .hidden { display: none; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid var(--border-color); }
+        th { font-weight: 600; color: var(--text-muted); font-size: 0.9rem; }
+        tbody tr { transition: background-color 0.2s ease; }
+        tbody tr:hover { background-color: rgba(55, 65, 81, 0.3); }
+        .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(5px); }
+    </style>
+</head>
+<body class="flex items-start justify-center min-h-screen">
+    <div class="container-wrapper">
+
+        <div id="admin-login" class="max-w-xl mx-auto">
+            <div class="card mt-12">
+                <div class="card-header"><h2 class="text-cyan-400">Admin Portal Login</h2></div>
+                <div class="card-body">
+                    <form id="login-form" class="space-y-6">
+                        <div class="form-group"><label for="email">Email</label><input type="email" id="email" required></div>
+                        <div class="form-group"><label for="password">Password</label><input type="password" id="password" required></div>
+                        <p id="login-error" class="hidden text-red-400 text-center">Invalid credentials.</p>
+                        <button type="submit" class="btn btn-primary w-full">Login</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div id="dashboard" class="max-w-6xl mx-auto hidden">
+             <div class="flex justify-between items-center mb-6">
+                <h1 class="text-4xl text-amber-400" style="font-family: 'Teko', sans-serif;">Admin Dashboard</h1>
+                <button id="logout-btn" class="btn btn-danger">Logout</button>
+            </div>
+            <div class="card">
+                <div class="card-header"><h2>Settings & Tools</h2></div>
+                <div class="card-body space-y-8">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-300 mb-2">Daily Seat Limit</h3>
+                        <div class="flex items-end gap-4">
+                            <div class="form-group flex-grow"><label for="daily-limit">Set Limit</label><input type="number" id="daily-limit" min="1"></div>
+                            <button id="set-limit-btn" class="btn btn-primary">Set</button>
+                        </div>
+                        <p id="limit-success" class="hidden text-green-400 mt-2 text-sm">Limit updated!</p>
+                    </div>
+                    <div class="border-t border-gray-700 pt-6">
+                        <h3 class="text-lg font-semibold text-gray-300 mb-4">Manage Day Availability</h3>
+                        <div id="day-availability-controls" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4"></div>
+                    </div>
+                    <form id="manual-booking-form" class="space-y-4 border-t border-gray-700 pt-6">
+                        <h3 class="font-semibold text-lg text-gray-300">Manually Add Token</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div class="form-group"><label for="manual-name">Name</label><input type="text" id="manual-name" required></div>
+                            <div class="form-group"><label for="manual-phone">Phone</label><input type="tel" id="manual-phone" required></div>
+                            <div class="form-group"><label for="manual-city">City</label><input type="text" id="manual-city" required></div>
+                            <div class="form-group"><label for="manual-day">Select Day</label><select id="manual-day" required></select></div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-full">Add Manual Booking</button>
+                        <p id="manual-booking-status" class="text-center text-sm mt-4"></p>
+                    </form>
+                     <div class="border-t border-gray-700 pt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div>
+                            <h3 class="font-semibold text-lg text-gray-300 mb-2">Export Data</h3>
+                            <button id="export-btn" class="btn btn-secondary w-full">Export to Excel</button>
+                         </div>
+                         <div>
+                            <h3 class="font-semibold text-lg text-gray-300 mb-2">Danger Zone</h3>
+                            <button id="delete-all-btn" class="btn btn-danger w-full">Delete All Bookings</button>
+                         </div>
+                     </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                        <h2>Bookings (<span id="booking-count">0</span>/<span id="booking-limit">0</span>)</h2>
+                        <div class="form-group w-full md:w-auto">
+                            <select id="day-filter"><option value="all">All Days</option></select>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body overflow-x-auto"><table id="bookings-table"><thead><tr><th>Token #</th><th>Name</th><th>Phone</th><th>City</th><th>Day</th><th>Actions</th></tr></thead><tbody id="bookings-table-body"></tbody></table></div>
+            </div>
+        </div>
+
+        <!-- Modals -->
+        <div id="edit-modal" class="modal hidden">
+            <div class="card max-w-lg w-full">
+                <div class="card-header flex justify-between items-center"><h2 class="text-cyan-400">Edit Booking</h2><button id="close-modal-btn" class="text-2xl">&times;</button></div>
+                <div class="card-body">
+                    <form id="edit-booking-form" class="space-y-4">
+                        <input type="hidden" id="edit-doc-id">
+                        <div class="form-group"><label for="edit-token">Token</label><input type="number" id="edit-token" required></div>
+                        <div class="form-group"><label for="edit-name">Name</label><input type="text" id="edit-name" required></div>
+                        <div class="form-group"><label for="edit-phone">Phone</label><input type="tel" id="edit-phone" required></div>
+                        <div class="form-group"><label for="edit-city">City</label><input type="text" id="edit-city" required></div>
+                        <div class="form-group"><label for="edit-day">Day</label><select id="edit-day" required></select></div>
+                        <button type="submit" class="btn btn-primary w-full">Save Changes</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div id="delete-all-modal" class="modal hidden">
+             <div class="card max-w-lg w-full text-center">
+                <div class="card-header"><h2 class="text-red-400">Confirm Deletion</h2></div>
+                <div class="card-body space-y-6">
+                    <p>Are you absolutely sure you want to delete ALL bookings? This action cannot be undone.</p>
+                    <div class="flex justify-center gap-4">
+                        <button id="cancel-delete-all-btn" class="btn btn-secondary">Cancel</button>
+                        <button id="confirm-delete-all-btn" class="btn btn-danger">Yes, Delete All</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="single-delete-modal" class="modal hidden">
+             <div class="card max-w-lg w-full text-center">
+                <div class="card-header"><h2 class="text-red-400">Confirm Deletion</h2></div>
+                <div class="card-body space-y-6">
+                    <p>Are you sure you want to delete this booking? This action cannot be undone.</p>
+                    <div class="flex justify-center gap-4">
+                        <button id="cancel-single-delete-btn" class="btn btn-secondary">Cancel</button>
+                        <button id="confirm-single-delete-btn" class="btn btn-danger">Yes, Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        const firebaseConfig = {
+            apiKey: "AIzaSyAyWd6VDCfxYoTUd_oo9vrk2t1uLAAcqWs",
+            authDomain: "tokenbooking-fdbbf.firebaseapp.com",
+            projectId: "tokenbooking-fdbbf",
+            storageBucket: "tokenbooking-fdbbf.appspot.com",
+            messagingSenderId: "791997144891",
+            appId: "1:791997144891:web:2d989e8649428b8c97e11e"
+        };
+        
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, addDoc, collection, onSnapshot, query, getDocs, runTransaction, deleteDoc, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let allBookings = [];
+        let daySettings = {};
+        const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        let docIdToDelete = null;
+
+        const dom = {
+            adminLoginView: document.getElementById('admin-login'),
+            dashboardView: document.getElementById('dashboard'),
+            loginForm: document.getElementById('login-form'),
+            loginError: document.getElementById('login-error'),
+            logoutBtn: document.getElementById('logout-btn'),
+            dailyLimitInput: document.getElementById('daily-limit'),
+            setLimitBtn: document.getElementById('set-limit-btn'),
+            limitSuccessMsg: document.getElementById('limit-success'),
+            dayAvailabilityControls: document.getElementById('day-availability-controls'),
+            manualBookingForm: document.getElementById('manual-booking-form'),
+            manualBookingStatus: document.getElementById('manual-booking-status'),
+            exportBtn: document.getElementById('export-btn'),
+            deleteAllBtn: document.getElementById('delete-all-btn'),
+            bookingsTableBody: document.getElementById('bookings-table-body'),
+            bookingCountEl: document.getElementById('booking-count'),
+            bookingLimitEl: document.getElementById('booking-limit'),
+            dayFilterSelect: document.getElementById('day-filter'),
+            manualDaySelect: document.getElementById('manual-day'),
+            editDaySelect: document.getElementById('edit-day'),
+            editModal: document.getElementById('edit-modal'),
+            closeModalBtn: document.getElementById('close-modal-btn'),
+            editBookingForm: document.getElementById('edit-booking-form'),
+            deleteAllModal: document.getElementById('delete-all-modal'),
+            cancelDeleteAllBtn: document.getElementById('cancel-delete-all-btn'),
+            confirmDeleteAllBtn: document.getElementById('confirm-delete-all-btn'),
+            singleDeleteModal: document.getElementById('single-delete-modal'),
+            cancelSingleDeleteBtn: document.getElementById('cancel-single-delete-btn'),
+            confirmSingleDeleteBtn: document.getElementById('confirm-single-delete-btn'),
+        };
+        
+        function showView(viewId) {
+            [dom.adminLoginView, dom.dashboardView].forEach(v => v.classList.add('hidden'));
+            document.getElementById(viewId)?.classList.remove('hidden');
+        }
+
+        function updateDaySelects() {
+            const selects = [dom.manualDaySelect, dom.editDaySelect, dom.dayFilterSelect];
+            selects.forEach(select => {
+                const isFilter = select.id === 'day-filter';
+                const currentVal = select.value;
+                select.innerHTML = isFilter ? '<option value="all">All Days</option>' : '<option value="" disabled selected>-- Choose a day --</option>';
+                daysOfWeek.forEach(day => {
+                    const option = document.createElement('option');
+                    option.value = day;
+                    option.textContent = day;
+                    select.appendChild(option);
+                });
+                if (currentVal) select.value = currentVal;
+            });
+        }
+
+        function renderAdminDayControls() {
+            dom.dayAvailabilityControls.innerHTML = '';
+            daysOfWeek.forEach(day => {
+                const isAvailable = daySettings[day] !== false;
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between p-3 rounded-lg';
+                div.className += isAvailable ? ' bg-green-500/20' : ' bg-red-500/20';
+                div.innerHTML = `<span class="font-semibold">${day}</span><button data-day="${day}" class="day-toggle-btn btn ${isAvailable ? 'btn-danger' : 'btn-secondary'} text-xs px-3 py-1">${isAvailable ? 'Block' : 'Unblock'}</button>`;
+                dom.dayAvailabilityControls.appendChild(div);
+            });
+        }
+        
+        async function createBooking(name, phone, city, day) {
+            const settingsRef = doc(db, "settings", "daily");
+            let newTokenNumber;
+            await runTransaction(db, async (transaction) => {
+                const settingsSnap = await transaction.get(settingsRef);
+                const dailyLimit = settingsSnap.exists() ? settingsSnap.data().limit : 50;
+                const bookingsSnapshot = await getDocs(query(collection(db, "bookings")));
+                if (bookingsSnapshot.size >= dailyLimit) throw new Error("Booking limit reached.");
+                newTokenNumber = bookingsSnapshot.size + 1;
+            });
+            await addDoc(collection(db, "bookings"), { token: newTokenNumber, name, phone, city, day, createdAt: new Date() });
+        }
+
+        function filterAndRenderBookings() {
+            const filter = dom.dayFilterSelect.value;
+            const filteredBookings = filter === 'all' ? allBookings : allBookings.filter(b => b.day === filter);
+
+            dom.bookingsTableBody.innerHTML = '';
+            if (filteredBookings.length === 0) {
+                 dom.bookingsTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-gray-500 py-8">No bookings found.</td></tr>`;
+            } else {
+                filteredBookings.forEach(booking => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td class="font-bold text-amber-400">#${booking.token}</td><td>${booking.name}</td><td>${booking.phone}</td><td>${booking.city}</td><td>${booking.day || 'N/A'}</td><td class="space-x-2"><button class="edit-btn text-cyan-400 hover:text-cyan-300" data-id="${booking.id}">Edit</button><button class="delete-btn text-red-400 hover:text-red-300" data-id="${booking.id}">Delete</button></td>`;
+                    dom.bookingsTableBody.appendChild(tr);
+                });
+            }
+        }
+        
+        function loadDashboardData() {
+            onSnapshot(doc(db, "settings", "daily"), (docSnap) => {
+                const limit = docSnap.exists() ? docSnap.data().limit : 50;
+                dom.dailyLimitInput.value = limit;
+                dom.bookingLimitEl.textContent = limit;
+            });
+
+             onSnapshot(doc(db, "settings", "days"), (docSnap) => {
+                daySettings = docSnap.exists() ? docSnap.data() : {};
+                renderAdminDayControls();
+            });
+
+            onSnapshot(query(collection(db, "bookings")), (snapshot) => {
+                allBookings = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => a.token - b.token);
+                dom.bookingCountEl.textContent = allBookings.length;
+                filterAndRenderBookings();
+            });
+        }
+
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                showView('dashboard');
+                updateDaySelects();
+                loadDashboardData();
+            } else {
+                showView('admin-login');
+            }
+        });
+
+        dom.loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            dom.loginError.classList.add('hidden');
+            try {
+                await signInWithEmailAndPassword(auth, dom.loginForm.elements['email'].value, dom.loginForm.elements['password'].value);
+            } catch (error) { dom.loginError.classList.remove('hidden'); }
+        });
+        
+        dom.logoutBtn.addEventListener('click', () => signOut(auth));
+        
+        dom.bookingsTableBody.addEventListener('click', (e) => {
+            const docId = e.target.dataset.id;
+            if (!docId) return;
+            if (e.target.classList.contains('delete-btn')) {
+                docIdToDelete = docId;
+                dom.singleDeleteModal.classList.remove('hidden');
+            } else if (e.target.classList.contains('edit-btn')) {
+                const bookingData = allBookings.find(b => b.id === docId);
+                if (bookingData) {
+                    dom.editModal.classList.remove('hidden');
+                    updateDaySelects();
+                    dom.editBookingForm.elements['edit-doc-id'].value = bookingData.id;
+                    dom.editBookingForm.elements['edit-token'].value = bookingData.token;
+                    dom.editBookingForm.elements['edit-name'].value = bookingData.name;
+                    dom.editBookingForm.elements['edit-phone'].value = bookingData.phone;
+                    dom.editBookingForm.elements['edit-city'].value = bookingData.city;
+                    dom.editBookingForm.elements['edit-day'].value = bookingData.day;
+                }
+            }
+        });
+        
+        dom.dayAvailabilityControls.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('day-toggle-btn')) {
+                const day = e.target.dataset.day;
+                // *** CRITICAL FIX IS HERE ***
+                const isCurrentlyAvailable = daySettings[day] !== false;
+                const newStatus = !isCurrentlyAvailable;
+                await setDoc(doc(db, "settings", "days"), { [day]: newStatus }, { merge: true });
+            }
+        });
+        
+        dom.dayFilterSelect.addEventListener('change', filterAndRenderBookings);
+        dom.closeModalBtn.addEventListener('click', () => dom.editModal.classList.add('hidden'));
+
+        dom.editBookingForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const docId = dom.editBookingForm.elements['edit-doc-id'].value;
+            const updatedData = {
+                token: parseInt(dom.editBookingForm.elements['edit-token'].value),
+                name: dom.editBookingForm.elements['edit-name'].value,
+                phone: dom.editBookingForm.elements['edit-phone'].value,
+                city: dom.editBookingForm.elements['edit-city'].value,
+                day: dom.editBookingForm.elements['edit-day'].value,
+            };
+            await updateDoc(doc(db, "bookings", docId), updatedData);
+            dom.editModal.classList.add('hidden');
+        });
+
+        dom.setLimitBtn.addEventListener('click', async () => {
+             const newLimit = parseInt(dom.dailyLimitInput.value);
+             if (newLimit > 0) {
+                await setDoc(doc(db, "settings", "daily"), { limit: newLimit });
+                dom.limitSuccessMsg.classList.remove('hidden');
+                setTimeout(() => dom.limitSuccessMsg.classList.add('hidden'), 2000);
+             }
+        });
+        
+        dom.manualBookingForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            dom.manualBookingStatus.textContent = '';
+            dom.manualBookingStatus.className = 'text-center text-sm mt-4';
+            try {
+                await createBooking(
+                    dom.manualBookingForm.elements['manual-name'].value,
+                    dom.manualBookingForm.elements['manual-phone'].value,
+                    dom.manualBookingForm.elements['manual-city'].value,
+                    dom.manualBookingForm.elements['manual-day'].value
+                );
+                dom.manualBookingForm.reset();
+                dom.manualBookingStatus.textContent = 'Booking added!';
+                dom.manualBookingStatus.classList.add('text-green-400');
+            } catch (error) { 
+                dom.manualBookingStatus.textContent = 'Failed: ' + error.message;
+                dom.manualBookingStatus.classList.add('text-red-400');
+            } finally {
+                setTimeout(() => { dom.manualBookingStatus.textContent = ''; }, 4000);
+            }
+        });
+
+        dom.exportBtn.addEventListener('click', () => {
+            if (allBookings.length === 0) {
+                dom.manualBookingStatus.textContent = "No bookings to export.";
+                dom.manualBookingStatus.className = 'text-center text-sm mt-4 text-amber-400';
+                setTimeout(() => { dom.manualBookingStatus.textContent = ''; }, 3000);
+                return;
+            };
+            const worksheet = XLSX.utils.json_to_sheet(allBookings.map(b => ({"Token": b.token, "Name": b.name, "Phone": b.phone, "City": b.city, "Day": b.day})));
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Bookings");
+            XLSX.writeFile(workbook, `Bookings-${new Date().toISOString().split('T')[0]}.xlsx`);
+        });
+
+        dom.deleteAllBtn.addEventListener('click', () => dom.deleteAllModal.classList.remove('hidden'));
+        dom.cancelDeleteAllBtn.addEventListener('click', () => dom.deleteAllModal.classList.add('hidden'));
+        dom.confirmDeleteAllBtn.addEventListener('click', async () => {
+            const batch = writeBatch(db);
+            const bookingsSnapshot = await getDocs(query(collection(db, "bookings")));
+            bookingsSnapshot.forEach(doc => { batch.delete(doc.ref); });
+            await batch.commit();
+            dom.deleteAllModal.classList.add('hidden');
+        });
+        
+        dom.cancelSingleDeleteBtn.addEventListener('click', () => {
+            dom.singleDeleteModal.classList.add('hidden');
+            docIdToDelete = null;
+        });
+        dom.confirmSingleDeleteBtn.addEventListener('click', async () => {
+            if (docIdToDelete) {
+                await deleteDoc(doc(db, "bookings", docIdToDelete));
+                docIdToDelete = null;
+                dom.singleDeleteModal.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
+
+
