@@ -25,10 +25,8 @@
         .form-group label { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem; display: block; }
         .form-group input, .form-group select { background: rgba(17, 24, 39, 0.8); border: 1px solid var(--border-color); color: var(--text-light); border-radius: 8px; padding: 0.75rem 1rem; width: 100%; box-sizing: border-box; transition: all 0.3s ease; }
         select option:disabled { text-decoration: line-through; color: #6b7280; }
-        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary-accent); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3); }
         .btn { padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; border: 1px solid transparent; }
         .btn-primary { background: var(--primary-accent); color: var(--bg-dark); border-color: var(--primary-accent); }
-        .btn-primary:hover { background: #d97706; box-shadow: 0 0 15px rgba(245, 158, 11, 0.5); }
         .btn:disabled { background: #4b5563; color: #9ca3af; cursor: not-allowed; border-color: #4b5563; }
         .hidden { display: none; }
         .marquee { width: 100%; overflow: hidden; background-color: rgba(17, 24, 39, 0.8); border-top: 1px solid var(--border-color); position: fixed; bottom: 0; left: 0; z-index: 50; }
@@ -37,12 +35,10 @@
     </style>
 </head>
 <body class="flex items-start justify-center min-h-screen">
-
     <div class="container-wrapper">
         <header class="text-center mb-6 flex justify-center">
              <img src="logo.png" alt="Khankha-e-Hussaini Logo" class="h-28 w-auto" onerror="this.style.display='none'">
         </header>
-
         <div id="user-view" class="max-w-xl mx-auto">
             <div class="card">
                 <div class="card-header"><h2 class="text-cyan-400">Book Your Appointment</h2></div>
@@ -51,22 +47,15 @@
                         <div class="form-group"><label for="name">Full Name</label><input type="text" id="name" placeholder="Enter your full name" required></div>
                         <div class="form-group"><label for="phone">Phone Number</label><input type="tel" id="phone" placeholder="Enter your 10-digit mobile number" required></div>
                         <div class="form-group"><label for="city">City</label><input type="text" id="city" placeholder="e.g., Jodhpur" required></div>
-                        <div class="form-group">
-                            <label for="day">Select Day</label>
-                            <select id="day" required>
-                                <option value="" disabled selected>-- Loading available days --</option>
-                            </select>
-                        </div>
+                        <div class="form-group"><label for="day">Select Day</label><select id="day" required><option value="" disabled selected>-- Choose a day --</option></select></div>
                         <button type="submit" id="book-btn" class="btn btn-primary w-full">Book Token</button>
                     </form>
                 </div>
             </div>
             <div id="result-card" class="card hidden text-center"></div>
         </div>
-        
         <footer class="marquee"><div class="marquee-content">Welcome to Khankha-e-Hussaini, Jodhpur. Appointments are subject to availability. Stay blessed. &nbsp;&nbsp;||&nbsp;&nbsp; खानकाह-ए-हुसैनी, जोधपुर में आपका स्वागत है। नियुक्तियाँ उपलब्धता के अधीन हैं। धन्य रहना। &nbsp;&nbsp;||&nbsp;&nbsp;</div></footer>
     </div>
-
     <script type="module">
         const firebaseConfig = {
             apiKey: "AIzaSyAyWd6VDCfxYoTUd_oo9vrk2t1uLAAcqWs",
@@ -76,72 +65,31 @@
             messagingSenderId: "791997144891",
             appId: "1:791997144891:web:2d989e8649428b8c97e11e"
         };
-        
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, runTransaction, addDoc, collection, increment, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, doc, addDoc, collection, runTransaction, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-
-        let daySettings = {};
         const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-        const dom = {
-            daySelect: document.getElementById('day'),
-            bookingForm: document.getElementById('booking-form'),
-            bookBtn: document.getElementById('book-btn'),
-            resultCard: document.getElementById('result-card'),
-        };
-
-        function updateDaySelects() {
-            const select = dom.daySelect;
-            if (!select) return;
-            const currentVal = select.value;
-            select.innerHTML = '<option value="" disabled selected>-- Choose a day --</option>';
-            
-            daysOfWeek.forEach(day => {
-                const isAvailable = daySettings[day] !== false;
-                const option = document.createElement('option');
-                option.value = day;
-                option.textContent = day + (!isAvailable ? ' (Unavailable)' : '');
-                option.disabled = !isAvailable;
-                select.appendChild(option);
-            });
-            if (currentVal) select.value = currentVal;
-        }
+        const dom = { daySelect: document.getElementById('day'), bookingForm: document.getElementById('booking-form'), bookBtn: document.getElementById('book-btn'), resultCard: document.getElementById('result-card') };
+        daysOfWeek.forEach(day => dom.daySelect.innerHTML += `<option value="${day}">${day}</option>`);
 
         async function createBooking(name, phone, city, day) {
-            if (daySettings[day] === false) {
-                throw new Error(`Sorry, bookings for ${day} are currently unavailable.`);
-            }
-            
             const settingsRef = doc(db, "settings", "daily");
             let newTokenNumber;
-
             await runTransaction(db, async (transaction) => {
                 const settingsSnap = await transaction.get(settingsRef);
+                if (!settingsSnap.exists()) { throw new Error("Settings not configured by admin."); }
                 
-                if (!settingsSnap.exists()) {
-                    throw new Error("Settings not configured. Please contact admin.");
-                }
-
                 const dailyLimit = settingsSnap.data().limit || 50;
                 const currentCount = settingsSnap.data().count || 0;
-
-                if (currentCount >= dailyLimit) {
-                    throw new Error("Sorry, all tokens for today are booked.");
-                }
-
-                newTokenNumber = currentCount + 1;
+                if (currentCount >= dailyLimit) { throw new Error("Sorry, all tokens for today are booked."); }
                 
-                // Add the new booking
+                newTokenNumber = currentCount + 1;
                 const bookingData = { token: newTokenNumber, name, phone, city, day, createdAt: new Date() };
                 transaction.set(doc(collection(db, "bookings")), bookingData);
-                
-                // Increment the counter
                 transaction.update(settingsRef, { count: increment(1) });
             });
-
             return { token: newTokenNumber };
         }
         
@@ -151,10 +99,8 @@
             dom.resultCard.classList.add('hidden');
             try {
                 const result = await createBooking(
-                    dom.bookingForm.elements['name'].value,
-                    dom.bookingForm.elements['phone'].value,
-                    dom.bookingForm.elements['city'].value,
-                    dom.bookingForm.elements['day'].value
+                    dom.bookingForm.elements['name'].value, dom.bookingForm.elements['phone'].value,
+                    dom.bookingForm.elements['city'].value, dom.bookingForm.elements['day'].value
                 );
                 dom.resultCard.innerHTML = `<div class="card-header bg-green-500/20 border-green-500"><h2 class="text-green-400">Booking Successful!</h2></div><div class="card-body space-y-4"><div class="text-center"><p class="text-gray-400">Your Token Number:</p><h3 class="text-4xl font-bold text-amber-400">#${result.token}</h3></div><small class="block text-gray-500">Please arrive 15 minutes early.</small></div>`;
                 dom.resultCard.classList.remove('hidden');
@@ -163,15 +109,8 @@
                 dom.resultCard.innerHTML = `<div class="card-header bg-red-500/20 border-red-500"><h2 class="text-red-400">Booking Failed</h2></div><div class="card-body"><p class="text-center">${error.message}</p></div>`;
                 dom.resultCard.classList.remove('hidden');
             } finally {
-                dom.bookBtn.disabled = false;
-                dom.bookBtn.textContent = 'Book Token';
+                dom.bookBtn.disabled = false; dom.bookBtn.textContent = 'Book Token';
             }
-        });
-
-        updateDaySelects();
-        onSnapshot(doc(db, "settings", "days"), (docSnap) => {
-            daySettings = docSnap.exists() ? docSnap.data() : {};
-            updateDaySelects();
         });
     </script>
 </body>
