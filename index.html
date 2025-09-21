@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Khankha-e-Hussaini - jalore</title>
+    <title>Khankha-e-Hussaini - Jodhpur</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Teko:wght@400;500;600&display=swap" rel="stylesheet">
@@ -64,7 +64,7 @@
             <div id="result-card" class="card hidden text-center"></div>
         </div>
         
-        <footer class="marquee"><div class="marquee-content">Welcome to Khankha-e-Hussaini, Jalore. Appointments are subject to availability. Stay blessed. &nbsp;&nbsp;||&nbsp;&nbsp; खानकाह-ए-हुसैनी, जोधपुर में आपका स्वागत है। नियुक्तियाँ उपलब्धता के अधीन हैं। धन्य रहना। &nbsp;&nbsp;||&nbsp;&nbsp;</div></footer>
+        <footer class="marquee"><div class="marquee-content">Welcome to Khankha-e-Hussaini, Jodhpur. Appointments are subject to availability. Stay blessed. &nbsp;&nbsp;||&nbsp;&nbsp; खानकाह-ए-हुसैनी, जोधपुर में आपका स्वागत है। नियुक्तियाँ उपलब्धता के अधीन हैं। धन्य रहना। &nbsp;&nbsp;||&nbsp;&nbsp;</div></footer>
     </div>
 
     <script type="module">
@@ -78,7 +78,7 @@
         };
         
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, runTransaction, collection, query, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, runTransaction, addDoc, collection, increment, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -114,16 +114,34 @@
             if (daySettings[day] === false) {
                 throw new Error(`Sorry, bookings for ${day} are currently unavailable.`);
             }
+            
             const settingsRef = doc(db, "settings", "daily");
             let newTokenNumber;
+
             await runTransaction(db, async (transaction) => {
                 const settingsSnap = await transaction.get(settingsRef);
-                const dailyLimit = settingsSnap.exists() ? settingsSnap.data().limit : 50;
-                const bookingsSnapshot = await getDocs(query(collection(db, "bookings")));
-                if (bookingsSnapshot.size >= dailyLimit) throw new Error("Sorry, all tokens for today are booked.");
-                newTokenNumber = bookingsSnapshot.size + 1;
+                
+                if (!settingsSnap.exists()) {
+                    throw new Error("Settings not configured. Please contact admin.");
+                }
+
+                const dailyLimit = settingsSnap.data().limit || 50;
+                const currentCount = settingsSnap.data().count || 0;
+
+                if (currentCount >= dailyLimit) {
+                    throw new Error("Sorry, all tokens for today are booked.");
+                }
+
+                newTokenNumber = currentCount + 1;
+                
+                // Add the new booking
+                const bookingData = { token: newTokenNumber, name, phone, city, day, createdAt: new Date() };
+                transaction.set(doc(collection(db, "bookings")), bookingData);
+                
+                // Increment the counter
+                transaction.update(settingsRef, { count: increment(1) });
             });
-            await addDoc(collection(db, "bookings"), { token: newTokenNumber, name, phone, city, day, createdAt: new Date() });
+
             return { token: newTokenNumber };
         }
         
@@ -150,7 +168,6 @@
             }
         });
 
-        // Initial Load
         updateDaySelects();
         onSnapshot(doc(db, "settings", "days"), (docSnap) => {
             daySettings = docSnap.exists() ? docSnap.data() : {};
