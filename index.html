@@ -12,26 +12,21 @@
         :root {
             --bg-dark: #111827; --bg-card: rgba(31, 41, 55, 0.5);
             --primary-accent: #f59e0b; --secondary-accent: #06b6d4;
-            --danger-color: #ef4444; --text-light: #f3f4f6;
-            --text-muted: #9ca3af; --border-color: rgba(75, 85, 99, 0.7);
+            --text-light: #f3f4f6; --text-muted: #9ca3af;
         }
         body { font-family: 'Poppins', sans-serif; background-color: var(--bg-dark); color: var(--text-light); }
         .container-wrapper { width: 100%; padding: 1rem; padding-bottom: 5rem; }
         h2 { font-family: 'Teko', sans-serif; letter-spacing: 1px; }
-        .card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(10px); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); margin-bottom: 2rem; }
-        .card-header { padding: 1.5rem; border-bottom: 1px solid var(--border-color); }
+        .card { background: var(--bg-card); border: 1px solid rgba(75, 85, 99, 0.7); border-radius: 16px; backdrop-filter: blur(10px); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); margin-bottom: 2rem; }
+        .card-header { padding: 1.5rem; border-bottom: 1px solid rgba(75, 85, 99, 0.7); }
         .card-header h2 { font-size: 2rem; color: var(--secondary-accent); }
         .card-body { padding: 1.5rem; }
         .form-group label { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem; display: block; }
-        .form-group input, .form-group select { background: rgba(17, 24, 39, 0.8); border: 1px solid var(--border-color); color: var(--text-light); border-radius: 8px; padding: 0.75rem 1rem; width: 100%; box-sizing: border-box; transition: all 0.3s ease; }
-        select option:disabled { text-decoration: line-through; color: #6b7280; }
-        .btn { padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; border: 1px solid transparent; }
+        .form-group input, .form-group select { background: rgba(17, 24, 39, 0.8); border: 1px solid rgba(75, 85, 99, 0.7); color: var(--text-light); border-radius: 8px; padding: 0.75rem 1rem; width: 100%; box-sizing: border-box; }
+        .btn { padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; border: 1px solid transparent; }
         .btn-primary { background: var(--primary-accent); color: var(--bg-dark); border-color: var(--primary-accent); }
         .btn:disabled { background: #4b5563; color: #9ca3af; cursor: not-allowed; border-color: #4b5563; }
         .hidden { display: none; }
-        .marquee { width: 100%; overflow: hidden; background-color: rgba(17, 24, 39, 0.8); border-top: 1px solid var(--border-color); position: fixed; bottom: 0; left: 0; z-index: 50; }
-        .marquee-content { display: inline-block; white-space: nowrap; padding: 10px 0; animation: marquee 30s linear infinite; color: var(--primary-accent); font-weight: 500; }
-        @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
     </style>
 </head>
 <body class="flex items-start justify-center min-h-screen">
@@ -44,9 +39,9 @@
                 <div class="card-header"><h2 class="text-cyan-400">Book Your Appointment</h2></div>
                 <div class="card-body">
                     <form id="booking-form" class="space-y-6">
-                        <div class="form-group"><label for="name">Full Name</label><input type="text" id="name" placeholder="Enter your full name" required></div>
-                        <div class="form-group"><label for="phone">Phone Number</label><input type="tel" id="phone" placeholder="Enter your 10-digit mobile number" required></div>
-                        <div class="form-group"><label for="city">City</label><input type="text" id="city" placeholder="e.g., Jodhpur" required></div>
+                        <div class="form-group"><label for="name">Full Name</label><input type="text" id="name" required></div>
+                        <div class="form-group"><label for="phone">Phone Number</label><input type="tel" id="phone" required></div>
+                        <div class="form-group"><label for="city">City</label><input type="text" id="city" required></div>
                         <div class="form-group"><label for="day">Select Day</label><select id="day" required><option value="" disabled selected>-- Choose a day --</option></select></div>
                         <button type="submit" id="book-btn" class="btn btn-primary w-full">Book Token</button>
                     </form>
@@ -54,7 +49,6 @@
             </div>
             <div id="result-card" class="card hidden text-center"></div>
         </div>
-        <footer class="marquee"><div class="marquee-content">Welcome to Khankha-e-Hussaini, Jodhpur. Appointments are subject to availability. Stay blessed. &nbsp;&nbsp;||&nbsp;&nbsp; खानकाह-ए-हुसैनी, जोधपुर में आपका स्वागत है। नियुक्तियाँ उपलब्धता के अधीन हैं। धन्य रहना। &nbsp;&nbsp;||&nbsp;&nbsp;</div></footer>
     </div>
     <script type="module">
         const firebaseConfig = {
@@ -87,8 +81,10 @@
                 
                 newTokenNumber = currentCount + 1;
                 const bookingData = { token: newTokenNumber, name, phone, city, day, createdAt: new Date() };
-                transaction.set(doc(collection(db, "bookings")), bookingData);
+                
+                // This transaction will now succeed because of the new security rules
                 transaction.update(settingsRef, { count: increment(1) });
+                transaction.set(doc(collection(db, "bookings")), bookingData);
             });
             return { token: newTokenNumber };
         }
@@ -102,7 +98,7 @@
                     dom.bookingForm.elements['name'].value, dom.bookingForm.elements['phone'].value,
                     dom.bookingForm.elements['city'].value, dom.bookingForm.elements['day'].value
                 );
-                dom.resultCard.innerHTML = `<div class="card-header bg-green-500/20 border-green-500"><h2 class="text-green-400">Booking Successful!</h2></div><div class="card-body space-y-4"><div class="text-center"><p class="text-gray-400">Your Token Number:</p><h3 class="text-4xl font-bold text-amber-400">#${result.token}</h3></div><small class="block text-gray-500">Please arrive 15 minutes early.</small></div>`;
+                dom.resultCard.innerHTML = `<div class="card-header bg-green-500/20 border-green-500"><h2 class="text-green-400">Booking Successful!</h2></div><div class="card-body space-y-4"><div class="text-center"><p class="text-gray-400">Your Token Number:</p><h3 class="text-4xl font-bold text-amber-400">#${result.token}</h3></div></div>`;
                 dom.resultCard.classList.remove('hidden');
                 dom.bookingForm.reset();
             } catch (error) {
